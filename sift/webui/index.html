@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>sift — local file recognizer & summarizer</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧫</text></svg>">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">🧫</span>
+      <div>
+        <h1>sift</h1>
+        <p class="tagline">Recognize &amp; summarize any file with a local LLM — fully offline.</p>
+      </div>
+    </div>
+    <div id="status" class="status" title="backend status">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text">checking…</span>
+    </div>
+  </header>
+
+  <main>
+    <section id="dropzone" class="dropzone" tabindex="0" aria-label="Drop files or click to choose">
+      <input type="file" id="file-input" multiple hidden>
+      <div class="dz-inner">
+        <div class="dz-icon">📥</div>
+        <p class="dz-title">Drop files here or <span class="link">browse</span></p>
+        <p class="dz-hint">csv · txt · eml · pdf · docx · xlsx · images · json · logs · scripts · …</p>
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <label class="switch">
+        <input type="checkbox" id="vision-toggle" checked>
+        <span>send images to vision model</span>
+      </label>
+      <button id="clear-btn" class="ghost" hidden>clear results</button>
+    </div>
+
+    <section id="results" class="results" aria-live="polite"></section>
+  </main>
+
+  <footer class="footer">
+    <span>sift runs locally · your files never leave this machine</span>
+  </footer>
+
+  <template id="card-tpl">
+    <article class="card">
+      <div class="card-head">
+        <span class="card-icon"></span>
+        <div class="card-title">
+          <h2 class="fname"></h2>
+          <p class="meta-line"></p>
+        </div>
+        <span class="badge kind"></span>
+      </div>
+      <div class="card-body">
+        <div class="field classification"></div>
+        <div class="field summary"></div>
+        <div class="field key-points">
+          <h3>Key points</h3>
+          <ul></ul>
+        </div>
+        <div class="field entities"></div>
+        <div class="field warnings"></div>
+        <details class="metadata">
+          <summary>Extracted metadata</summary>
+          <pre></pre>
+        </details>
+      </div>
+      <div class="card-foot"></div>
+    </article>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>

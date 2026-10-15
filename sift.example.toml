@@ -1,0 +1,90 @@
+# sift configuration — copy to ./sift.toml or ~/.config/sift/config.toml
+# (or point at it with --config / SIFT_CONFIG).
+#
+# Every key sift understands is listed here, with its default. Precedence,
+# lowest to highest: these defaults < this file < SIFT_* environment variables
+# < command-line flags. An unknown key or a value of the wrong type is an
+# error, not a shrug — a setting that silently did nothing is worse than one
+# that complains.
+#
+# Reading a config file needs Python 3.11+ (tomllib) or the `tomli` backport.
+
+[sift]
+# --- LLM backend ---
+provider = "auto"        # auto | ollama | lmstudio | mlx-lm | openai | none
+model = ""               # empty = pick a model that is already loaded
+endpoint = ""            # empty = provider default
+                         #   ollama   -> http://localhost:11434
+                         #   lmstudio -> http://localhost:1234/v1
+                         #   mlx-lm   -> http://localhost:8080/v1
+api_key = ""             # only if your server requires one
+
+# Loading a model evicts whatever the server currently holds in memory. With
+# this false, sift only uses models that are already loaded, and tells you
+# what to load if none of them fits. It will still load one when the server is
+# idle, because then nothing is evicted.
+allow_model_load = false
+
+# Stream the answer token by token. Leave this on: a non-streaming request
+# sends nothing while the model thinks, and proxies close the silent
+# connection — measured here, a 20-second idle timeout killed every model
+# slower than that.
+stream = true
+
+# --- generation ---
+context_tokens = 0       # 0 = use the window the model was actually
+                         # loaded with, as the server reports it
+max_output_tokens = 2000 # ceiling for the answer; a reasoning model spends
+                         # part of it thinking, so keep it generous
+temperature = 0.2        # low = faithful, deterministic
+timeout = 180.0          # seconds per request (per read, when streaming)
+
+# --- extraction ---
+max_bytes = 25000000     # read at most this many bytes per file; anything
+                         # larger is reported with truncated = true
+vision = true            # send images to vision-capable models
+# spool_dir = ""         # where `sift serve` writes an upload while it reads
+                         # it; empty means the system temp directory, which is
+                         # local disk. Point it at the large volume on a host
+                         # where local disk is the small one. Like endpoint,
+                         # only a config file you name with --config may set
+                         # it — not one sift found by searching upwards.
+
+# --- traversal ---
+recursive = false        # descend into directories
+include = []             # only files matching these globs, e.g. ["*.csv", "*.eml"]
+exclude = []             # skip files matching these, e.g. [".git/*", "*.min.js"]
+                         # Both are lists. A bare string is rejected: as a
+                         # string it would be read character by character.
+                         # Globs match the file name and, under a directory
+                         # argument, the path relative to it.
+follow_symlinks = false  # descend into symlinked directories (they can loop)
+
+# Reuse the summary of a file whose content, model and settings are all
+# unchanged. The key covers all of them, so this never serves another model's
+# answer. --clear-cache empties it; SIFT_CACHE_DIR moves it.
+cache = true
+
+# --- output ---
+output_format = "text"   # text | json | markdown
+quiet = false            # suppress progress and the footer
+verbose = false          # per-file detection details on stderr
+no_llm = false           # extraction + heuristic summary only, never call a model
+
+# --- classification ---
+tags = 0                 # ask for up to this many tags per file (0 = none,
+                         # the default: prompt and cache key stay as they are)
+categories = []          # the categories a file may be put in, e.g.
+                         # ["invoice", "contract", "data table", "other"];
+                         # the model must answer one of them. Empty = none.
+# Rules that assign a category without a model — first match wins. Each has
+# a category, optionally a kind (or a list of kinds) and metadata predicates:
+# [[sift.category_rules]]
+# category = "data table"
+# kind = ["csv", "tsv", "xlsx", "ods"]
+# [[sift.category_rules]]
+# category = "invoice"
+# kind = "email"
+# metadata = { "headers.subject" = { contains = "rechnung" } }
+# [[sift.category_rules]]
+# category = "other"

@@ -1,0 +1,11 @@
+# sift core needs NOTHING beyond the Python 3.9+ standard library.
+# These optional packages raise fidelity when present; sift degrades gracefully
+# without them. Install any subset:
+#
+#   pip install -r requirements-optional.txt
+#
+pypdf>=6.18.1     # reliable PDF text extraction (stdlib fallback used otherwise);
+                  # 6.18.1: the oldest release sift's bounds are tested on
+Pillow>=10        # image mode + EXIF (dimensions already work without it)
+PyYAML>=6         # structured YAML parsing (raw text used otherwise)
+rich>=13          # (reserved) prettier terminal output

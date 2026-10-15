@@ -1,0 +1,9 @@
+id,name,department,salary,start_date,active
+1,Alice Schneider,Engineering,72000,2021-03-15,true
+2,Bruno Keller,Sales,58000,2020-07-01,true
+3,Carla Mendez,Engineering,81500,2019-11-23,true
+4,David Okoro,Marketing,49000,2022-01-10,false
+5,Eva Lindqvist,Engineering,90000,2018-05-30,true
+6,Farid Hassan,Sales,61000,2021-09-14,true
+7,Greta Bauer,Marketing,53500,2020-02-28,false
+8,Hiroshi Tanaka,Engineering,88000,2019-08-19,true

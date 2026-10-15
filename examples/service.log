@@ -1,0 +1,10 @@
+2026-08-07 23:59:58 INFO  scheduler   Nightly job 'reporting' queued
+2026-08-08 00:00:01 INFO  loader      Incremental load started (since=2026-08-07)
+2026-08-08 00:03:12 WARNING loader    Skipped 14 rows with null primary key
+2026-08-08 00:11:47 INFO  writer      Wrote 1,284,553 rows to columnar store
+2026-08-08 00:12:03 ERROR writer      Failed to flush partition p=2026-08-08: disk full
+2026-08-08 00:12:03 ERROR scheduler   Job 'reporting' failed after 00:12:02
+2026-08-08 00:12:04 CRITICAL alerting Paged on-call: reporting pipeline down
+2026-08-08 00:20:31 INFO  scheduler   Manual retry requested by operator
+2026-08-08 00:34:09 INFO  writer      Wrote 1,284,539 rows to columnar store
+2026-08-08 00:34:10 INFO  scheduler   Job 'reporting' completed in 00:13:39

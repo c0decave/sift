@@ -1,0 +1,16 @@
+{
+  "service": "reporting-api",
+  "version": "2.4.1",
+  "database": {
+    "host": "db.internal",
+    "port": 5432,
+    "pool": { "min": 2, "max": 20 }
+  },
+  "features": {
+    "incremental_load": true,
+    "columnar_storage": true,
+    "legacy_fallback": false
+  },
+  "allowed_origins": ["https://dash.example.com", "https://admin.example.com"],
+  "retention_days": 90
+}
