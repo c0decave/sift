@@ -12,5 +12,5 @@ raise fidelity, but nothing breaks when they are absent.
 """
 from __future__ import annotations
 
-__version__ = "0.1.93"
+__version__ = "0.1.95"
 __all__ = ["__version__"]

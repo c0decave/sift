@@ -177,7 +177,7 @@ def build_image_metadata_prompt(*, filename: str, kind: str, mime: str,
     return (f"Filename: {one_line(filename)}\n"
             f"Detected type: {one_line(kind)} ({one_line(mime)})\n"
             f"Extracted metadata:\n{render_metadata(metadata)}\n\n"
-            "No vision model is available, so you CANNOT see this image. "
+            "The image itself is not attached, so you CANNOT see this image. "
             "Describe only what the filename and metadata establish, and say "
             "plainly that the visual content was not examined. Do not guess "
             "what the picture shows. Follow the required format.")

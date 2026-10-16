@@ -109,7 +109,7 @@ Datei eine deutsche Zusammenfassung, wenn das Modell deutsch schreibt.
 | Web | html |
 | Dokumente | **pdf**, **docx**, **xlsx**, **pptx**, odt, ods, odp, rtf, Legacy Office (**doc**, **xls**, ppt: Zellen und Notizen von BIFF5/8, Text von Word 6/95/97+, Folien- und Notiztext; die gespeicherten Werte von Formeln, nicht neu berechnet; eine verschlüsselte Datei wird gemeldet, nicht gelesen) |
 | Datenbanken | sqlite (Tables, Columns, Row Counts, Views) |
-| Bilder | png, jpeg, gif, bmp, webp, tiff, heic *(+ Vision-Modelle)* |
+| Bilder | png, jpeg, gif, bmp, webp, tiff, heic, avif *(png, jpeg, gif + Vision-Modelle)* |
 | Code und Scripts | bat, sh, ps1, python, js, ts und rund 20 weitere |
 | Fallback | Archive (zip, tar, epub, deb und anderes ar, cpio, cab, 7z, ISO-Images), einzelne komprimierte Dateien (gz, bz2, xz, zst, Z), andere Compound Files (msg, vsd), Executables, unbekannte Binaries — Strings, Entropie, Hex, Member-Liste |
 
@@ -256,7 +256,11 @@ Ordnung geht.
 
 Bilder gehen an ein geladenes Vision-Modell. Gibt es keines, sagt sift das und
 beschreibt die Datei aus ihren Metadaten, statt so zu tun, als hätte ein
-Textmodell das Bild gesehen.
+Textmodell das Bild gesehen. Gesendet werden nur PNG, JPEG und GIF: LM Studio
+lehnt WEBP, BMP, ICO, TIFF und AVIF mit HTTP 400 ab. Diese Formate und jedes Bild,
+das aus einem anderen Grund nicht mitgeht (Vision aus, zu groß, abgeschnitten),
+werden aus den Metadaten beschrieben, mit einem Prompt, der sagt, dass das Modell
+das Bild nicht sieht.
 
 ## Große Dateien
 
@@ -721,7 +725,7 @@ hat.
 python3 -m unittest discover -s tests     # standard library only, ~330 s
 ```
 
-2,424 Tests, keine Third-Party-Dependencies, kein Netzwerk.
+2,429 Tests, keine Third-Party-Dependencies, kein Netzwerk.
 
 **Corpora, keine Beispiele.** Jede Heuristik, die etwas entscheidet — ist das
 eine Injection, ist das ein Credential, behauptet diese Zusammenfassung, die

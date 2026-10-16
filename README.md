@@ -103,7 +103,7 @@ the model writes German.
 | Web | html |
 | Documents | **pdf**, **docx**, **xlsx**, **pptx**, odt, ods, odp, rtf, legacy Office (**doc**, **xls**, ppt: BIFF5/8 cells and notes, Word 6/95/97+ text, slide and note text; the cached values of formulas, not recalculated; an encrypted file is said, not read) |
 | Databases | sqlite (tables, columns, row counts, views) |
-| Images | png, jpeg, gif, bmp, webp, tiff, heic *(+ vision models)* |
+| Images | png, jpeg, gif, bmp, webp, tiff, heic, avif *(png, jpeg, gif + vision models)* |
 | Code & scripts | bat, sh, ps1, python, js, ts, and ~20 more |
 | Fallback | archives (zip, tar, epub, deb and other ar, cpio, cab, 7z, ISO images), single compressed files (gz, bz2, xz, zst, Z), other compound files (msg, vsd), executables, unknown binaries — strings, entropy, hex, member list |
 
@@ -247,7 +247,10 @@ nothing, so it goes ahead; and `--allow-model-load` says you accept the swap.
 
 Images go to a loaded vision model. If there is none, sift says so and
 describes the file from its metadata instead of pretending a text model looked
-at the picture.
+at the picture. Only PNG, JPEG and GIF are sent: LM Studio refuses WEBP, BMP,
+ICO, TIFF and AVIF with HTTP 400, so those, and a picture that is not sent for
+any other reason (vision off, too large, cut short), are described from their
+metadata with a prompt that says the model cannot see them.
 
 ## Large files
 
@@ -675,7 +678,7 @@ A stub answers what you tell it to; a model answers what it read.
 python3 -m unittest discover -s tests     # standard library only, ~330 s
 ```
 
-2,424 tests, no third-party dependencies, no network.
+2,429 tests, no third-party dependencies, no network.
 
 **Corpora, not examples.** Every heuristic that decides something — is this an
 injection, is this a credential, is this summary claiming the file is empty —

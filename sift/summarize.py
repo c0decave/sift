@@ -36,7 +36,8 @@ from .extract.base import (Extracted, Span, _settled, decode_text,
                            too_short_to_find)
 from .llm import (LLMClient, LLMError, NoVisionModel, call_kind, prompts,
                   recording_calls)
-from .llm.base import ERROR_CHARS, repeatable
+from .llm.base import ERROR_CHARS, image_mime, repeatable
+from .extract.image import VISION_MIMES
 from .natural_language import detect_natural_language
 
 
@@ -1013,7 +1014,9 @@ def _apply_llm(summ: Summary, det: Detection, ex: Extracted,
                config: Config, client: LLMClient, emit=_silent) -> None:
     is_image = det.kind == "image"
     images = None
-    if is_image and config.vision and ex.image_data:
+    # Only a format the servers decode (the extractor's gate, held here once more by the bytes' own type: any other
+    # goes out as application/octet-stream and the server refuses the request).
+    if is_image and config.vision and ex.image_data and image_mime(ex.image_data) in VISION_MIMES:
         images = [ex.image_data]
 
     content = ex.text or ""
@@ -1022,14 +1025,21 @@ def _apply_llm(summ: Summary, det: Detection, ex: Extracted,
     budget = input_char_budget(context, config.max_output_tokens, text=content)
 
     if is_image or estimate_tokens(content) <= token_budget:
-        user = prompts.build_user_prompt(
-            filename=summ.filename, kind=det.kind, mime=det.mime,
-            metadata=ex.metadata, content=content[:budget], is_image=is_image,
-            rendered=getattr(ex, "rendered", False),
-            covered=getattr(ex, "text_covers", ()))
         blind = prompts.build_image_metadata_prompt(
             filename=summ.filename, kind=det.kind, mime=det.mime,
             metadata=ex.metadata) if is_image else None
+        if is_image and not images:
+            # No pixels go out (vision off, a format no server decodes, too
+            # large, cut short): "the image itself is attached" made text
+            # models describe a circle, a star or a shield on a picture that is
+            # one blue area (a host application model benchmark, 2026-10-16).
+            user = blind
+        else:
+            user = prompts.build_user_prompt(
+                filename=summ.filename, kind=det.kind, mime=det.mime,
+                metadata=ex.metadata, content=content[:budget], is_image=is_image,
+                rendered=getattr(ex, "rendered", False),
+                covered=getattr(ex, "text_covers", ()))
         result = _generate(summ, client, _system(config), user, images, config,
                            fallback_user=blind)
     elif ex.digest and estimate_tokens(ex.digest) <= token_budget:

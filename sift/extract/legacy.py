@@ -52,6 +52,16 @@ MAX_PIECES = 500_000
 MAX_PPT_RECORDS = 2_000_000
 #: Rows of the rendering of a sheet (the page reader has its own bounds).
 ROWS_SHOWN = 12
+#: A workbook read as a table (read_sheet_page, open_sheet_stream) is no larger than an xlsx member is read: a page
+#: reads the whole workbook again, in the request that shows it. A summary reads up to MAX_FILE.
+MAX_TABLE_FILE = office._MAX_MEMBER
+#: The columns of a BIFF5 and a BIFF8 sheet; a cell record's column field holds 65,535 (measured 2026-10-15: one
+#: cell in column 65,000 on each of 3,000 rows, a 43 KiB file, took 18.5 s a page).
+MAX_COLUMNS = 256
+#: Shared strings read, and their characters: about 65 bytes each in memory, where the file spends five (measured
+#: 2026-10-15: 1.2 million two-character strings, 5.8 MiB, 77 MiB).
+MAX_STRINGS = 1_000_000
+MAX_STRING_CHARS = 32_000_000
 
 DOC, XLS, PPT = "doc", "xls", "ppt"
 _STREAMS = (("WordDocument", DOC), ("Workbook", XLS), ("Book", XLS),
@@ -71,9 +81,13 @@ class Encrypted(Unreadable):
 
 # ---- the compound file ----------------------------------------------------
 
-def _compound(path) -> _Cfb:
+def _compound(path, table: bool = False) -> _Cfb:
+    """The compound file at ``path``; with ``table``, under MAX_TABLE_FILE."""
     path = Path(path)
     size = path.stat().st_size
+    if table and size > MAX_TABLE_FILE:
+        raise Unreadable(f"a workbook larger than {human_size(MAX_TABLE_FILE)}"
+                         f" is not read as a table")
     if size > MAX_FILE:
         raise Unreadable(f"a compound file larger than {human_size(MAX_FILE)}"
                          f" is not read")
@@ -363,6 +377,8 @@ class Workbook:
         self.xf: list = []
         self._date_xf: dict = {}
         self.notes: list = []
+        #: What was not read, in words for a note (cut_notes).
+        self.cuts: list = []
         self._globals()
 
     # -- globals ------------------------------------------------------------
@@ -425,10 +441,21 @@ class Workbook:
 
     def _sst(self, segments) -> None:
         reader = _Segments(segments)
+        chars = 0
         try:
             reader.take(8)
             while not reader.empty():
-                self.strings.append(_unicode_string(reader))
+                if len(self.strings) >= MAX_STRINGS:
+                    self._cut(f"the shared strings past the first "
+                              f"{MAX_STRINGS:,} are not read")
+                    return
+                text = _unicode_string(reader)
+                chars += len(text)
+                if chars > MAX_STRING_CHARS:
+                    self._cut(f"the shared strings past the first "
+                              f"{MAX_STRING_CHARS:,} characters are not read")
+                    return
+                self.strings.append(text)
         except Unreadable:
             # The strings read stand; the rest of the table is damaged.
             pass
@@ -445,6 +472,10 @@ class Workbook:
         except Unreadable:
             return
         self.formats[index] = code
+
+    def _cut(self, why: str) -> None:
+        if why not in self.cuts:
+            self.cuts.append(why)
 
     def is_date(self, ixfe: int) -> bool:
         cached = self._date_xf.get(ixfe)
@@ -469,7 +500,17 @@ class Workbook:
         """(row, column, text) of every cell of ``sheet`` in file order. A
         cell with a formula shows the value the program that saved the file
         cached (``counts["formulas"]`` counts them); with ``collect`` the
-        text of notes and text boxes is added to ``self.notes``."""
+        text of notes and text boxes is added to ``self.notes``. A cell past
+        the format's last column is no cell of the sheet: not read, and
+        said (cuts)."""
+        for row, col, text in self._cells(sheet, counts, collect):
+            if col >= MAX_COLUMNS:
+                self._cut(f"cells past column {MAX_COLUMNS}, which the format "
+                          f"does not have, are not read")
+                continue
+            yield row, col, text
+
+    def _cells(self, sheet: _Sheet, counts, collect):
         data = self.data
         if sheet.offset >= len(data) or _u16(data, sheet.offset) != _BOF:
             raise Unreadable(f"the sheet {sheet.name!r} does not begin with a "
@@ -626,6 +667,11 @@ def _dense(items):
 
 # ---- .xls: extract, pages and streams -------------------------------------
 
+def _said(book: Workbook, sink) -> None:
+    for why in book.cuts:
+        sink.note(why)
+
+
 def _workbook(cfb: _Cfb) -> Workbook:
     streams = _root_streams(cfb)
     name = "Workbook" if "Workbook" in streams else "Book"
@@ -708,6 +754,9 @@ def _extract_xls(cfb: _Cfb, det: Detection) -> Extracted:
     if wide_any:
         ex.note(f"showed the first {office.MAX_RENDER_COLUMNS} columns of "
                 f"the wider sheets")
+    _said(book, ex)
+    if book.cuts:
+        ex.truncated = True
     return ex
 
 
@@ -716,7 +765,7 @@ def read_sheet_page(path, det: Detection, sheet, offset: int, limit: int,
     """One page of one sheet of a .xls (office.read_sheet_page's contract)."""
     page = TablePage(kind=det.kind, offset=offset)
     try:
-        book = _workbook(_compound(path))
+        book = _workbook(_compound(path, table=True))
     except Unreadable as exc:
         page.error = f"could not read the spreadsheet: {exc}"
         return page
@@ -734,6 +783,7 @@ def read_sheet_page(path, det: Detection, sheet, offset: int, limit: int,
     except Unreadable as exc:
         office._no_rows(page)
         page.error = f"could not read the spreadsheet: {exc}"
+    _said(book, page)
     return page
 
 
@@ -741,7 +791,7 @@ def open_sheet_stream(path, det: Detection, sheet, sink):
     """(header, rows, close) as office.open_sheet_stream gives them."""
     nothing = (None, iter(()), lambda: None)
     try:
-        book = _workbook(_compound(path))
+        book = _workbook(_compound(path, table=True))
     except Unreadable as exc:
         sink.error = f"could not read the spreadsheet: {exc}"
         return nothing
@@ -761,6 +811,7 @@ def open_sheet_stream(path, det: Detection, sheet, sink):
     def rows():
         yield from head
         yield from lines
+        _said(book, sink)
     return header or None, rows(), lambda: None
 
 

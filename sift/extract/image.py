@@ -14,6 +14,12 @@ from ..detect import Detection
 from .base import Extracted, human_size
 
 VISION_BYTE_CAP = 8_000_000  # don't base64 enormous images into a prompt
+#: The formats a vision server takes. Measured 2026-10-16 on LM Studio with a GGUF model (granite-vision-3.3-2b) and
+#: an MLX one (qwen/qwen3-vl-30b), each picture sent with its true type: PNG, JPEG and GIF answered; WEBP, BMP, ICO,
+#: TIFF and AVIF got HTTP 400 "'url' field must be a base64 encoded image." on both -- the whole request refused, the
+#: analysis failed (every vision model on an AVIF of the host application benchmark). Any other picture is described from
+#: its metadata, and the prompt says the model cannot see it.
+VISION_FORMATS = frozenset({"PNG", "JPEG", "GIF"})
 
 
 def extract(path: Path, det: Detection, max_bytes: int) -> Extracted:
@@ -45,7 +51,10 @@ def extract(path: Path, det: Detection, max_bytes: int) -> Extracted:
 
     ex = Extracted("image", mime, text=text, metadata=meta, rendered=True,
                    truncated=not complete)
-    if complete and len(data) <= VISION_BYTE_CAP:
+    if complete and fmt not in VISION_FORMATS:
+        ex.note(f"the picture ({fmt or 'unknown format'}) is not shown to a vision model: the servers decode "
+                f"{', '.join(sorted(VISION_FORMATS))} only")
+    elif complete and len(data) <= VISION_BYTE_CAP:
         ex.image_data = data
         ex.image_mime = mime
     elif not complete:
@@ -147,7 +156,12 @@ def _mime(fmt: Optional[str]) -> str:
         "PNG": "image/png", "JPEG": "image/jpeg", "GIF": "image/gif",
         "BMP": "image/bmp", "WEBP": "image/webp", "TIFF": "image/tiff",
         "ICO": "image/x-icon", "CUR": "image/x-icon", "HEIF": "image/heif",
+        "AVIF": "image/avif",
     }.get(fmt or "", "image/*")
+
+
+#: The types the data: URI of a picture sent carries (sift.llm.base.image_mime reads them off the bytes).
+VISION_MIMES = frozenset(_mime(fmt) for fmt in VISION_FORMATS)
 
 
 def _dimensions(data: bytes):
@@ -180,6 +194,8 @@ def _dimensions(data: bytes):
         return "WEBP", *_webp_dims(data)
     if data[:4] in (b"II*\x00", b"MM\x00*"):
         return "TIFF", None, None
+    if data[4:12] in (b"ftypavif", b"ftypavis"):
+        return "AVIF", None, None
     if data[4:12] in (b"ftypheic", b"ftypmif1", b"ftypheix"):
         return "HEIF", None, None
     if data[:4] == b"\x00\x00\x01\x00":

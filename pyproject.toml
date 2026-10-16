@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sift-summarizer"
-version = "0.1.93"
+version = "0.1.95"
 description = "Recognize & summarize files with a local LLM (Ollama / LM Studio / MLX-LM). Offline-first, zero-dependency core."
 readme = "README.md"
 requires-python = ">=3.9"

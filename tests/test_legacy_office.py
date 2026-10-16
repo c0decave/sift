@@ -828,3 +828,77 @@ class OtherCompoundFiles(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---- bounds a hostile workbook meets ---------------------------------------
+
+class WorkbookBounds(Base):
+    """What a planted workbook costs is bounded by what a real one can hold (measured 2026-10-15: one cell in column
+    65,000 on each of 3,000 rows, a 43 KiB file, took 18.5 s a page; 1.2 million two-character shared strings, a
+    5.8 MiB file, 77 MiB)."""
+
+    def test_a_cell_past_the_formats_last_column_is_not_read_and_said(self):
+        import time
+        body = sheet(*[label8(r, 65000, "far") for r in range(3000)], label8(0, 0, "near"), label8(1, 255, "edge"))
+        path = self.path("wide.xls", xls_file([("S", body)]))
+        started = time.monotonic()
+        page = read_table(path, detect(path), limit=10)
+        self.assertLess(time.monotonic() - started, 2.0)
+        rows = ([page.header] if page.header else []) + page.rows
+        self.assertEqual(rows[0][0], "near")
+        self.assertEqual(rows[1][255], "edge")
+        self.assertTrue(all(len(r) <= 256 for r in rows))
+        self.assertIn("past column 256", " ".join(page.notes))
+        ex = extract(path, detect(path), 10**7)
+        self.assertNotIn("far", ex.text)
+        self.assertIn("past column 256", " ".join(ex.notes))
+
+    def test_the_shared_strings_past_the_bound_are_not_read_and_said(self):
+        strings = [f"s{i}" for i in range(10)]
+        body = sheet(*[labelsst(i, 0, i) for i in range(10)])
+        path = self.path("sst.xls", xls_file([("S", body)], strings))
+        real = legacy.MAX_STRINGS
+        legacy.MAX_STRINGS = 4
+        try:
+            page = read_table(path, detect(path), limit=100)
+            ex = extract(path, detect(path), 10**7)
+        finally:
+            legacy.MAX_STRINGS = real
+        shown = [r[0] for r in ([page.header] if page.header else []) + page.rows if r]
+        self.assertEqual(shown, ["s0", "s1", "s2", "s3"])
+        self.assertIn("shared strings", " ".join(page.notes))
+        self.assertIn("shared strings", " ".join(ex.notes))
+
+    def test_the_shared_strings_characters_are_bounded_too(self):
+        strings = ["a" * 100, "b" * 100, "c" * 100]
+        path = self.path("chars.xls", xls_file([("S", sheet(*[labelsst(i, 0, i) for i in range(3)]))], strings))
+        real = legacy.MAX_STRING_CHARS
+        legacy.MAX_STRING_CHARS = 150
+        try:
+            page = read_table(path, detect(path), limit=100)
+        finally:
+            legacy.MAX_STRING_CHARS = real
+        shown = [r[0] for r in ([page.header] if page.header else []) + page.rows if r]
+        self.assertEqual(shown, ["a" * 100])
+
+    def test_a_workbook_larger_than_a_tables_bound_is_no_table_but_still_text(self):
+        path = self.path("big.xls", xls_file([("S", sheet(label8(0, 0, "cell")))]))
+        real = legacy.MAX_TABLE_FILE
+        legacy.MAX_TABLE_FILE = 100
+        try:
+            page = read_table(path, detect(path))
+            with iter_table(path, detect(path)) as stream:
+                rows = list(stream)
+                error = stream.error
+            ex = extract(path, detect(path), 10**7)
+        finally:
+            legacy.MAX_TABLE_FILE = real
+        self.assertEqual(page.rows, [])
+        self.assertIn("not read as a table", page.error)
+        self.assertEqual(rows, [])
+        self.assertIn("not read as a table", error)
+        self.assertIn("cell", ex.text)                       # the summary's bound is the compound file's own
+
+    def test_the_tables_bound_is_an_xlsx_members(self):
+        self.assertEqual(legacy.MAX_TABLE_FILE, office._MAX_MEMBER)
+        self.assertLessEqual(legacy.MAX_TABLE_FILE, legacy.MAX_FILE)
